@@ -32,9 +32,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div
-      className={`${color} rounded-lg p-2 md:p-3 flex items-center gap-2`}
-    >
+    <div className={`${color} rounded-lg p-2 md:p-3 flex items-center gap-2`}>
       {icon}
       <div>
         <p className="text-xs opacity-80">{label}</p>
@@ -65,9 +63,7 @@ function CardItem({ card, index }: { card: Flashcard; index: number }) {
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded ${status.color}`}
-            >
+            <span className={`text-xs px-1.5 py-0.5 rounded ${status.color}`}>
               {status.label}
             </span>
             <span className={`text-xs md:text-sm ${difficulty.color}`}>

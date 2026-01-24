@@ -153,9 +153,7 @@ export function CreateDeckModal({
                     <p className="text-purple-700 text-xs md:text-sm font-medium">
                       Q: {card.question}
                     </p>
-                    <p className="text-purple-500 text-xs">
-                      A: {card.answer}
-                    </p>
+                    <p className="text-purple-500 text-xs">A: {card.answer}</p>
                   </div>
                 ))}
               </div>

@@ -25,8 +25,8 @@ export function ApiKeyModal({ onSave, onClose }: ApiKeyModalProps) {
         </div>
         <div className="p-4 space-y-4">
           <p className="text-purple-500 text-sm">
-            To use AI-powered flashcard generation, please enter your Anthropic API key.
-            You can get one at{" "}
+            To use AI-powered flashcard generation, please enter your Anthropic
+            API key. You can get one at{" "}
             <a
               href="https://console.anthropic.com"
               target="_blank"

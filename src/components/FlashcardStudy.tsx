@@ -17,7 +17,8 @@ export function FlashcardStudy({
 }: FlashcardStudyProps) {
   const [showAnswer, setShowAnswer] = useState(false);
   const currentCard = cards[currentIndex];
-  const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
+  const progress =
+    cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
 
   const handleResponse = (response: StudyResponse) => {
     setShowAnswer(false);
@@ -40,7 +41,9 @@ export function FlashcardStudy({
 
       {/* Flashcard */}
       <div className="flashcard-container w-full max-w-md h-48 sm:h-56 md:h-64 lg:h-72">
-        <div className={`flashcard w-full h-full relative ${showAnswer ? "flipped" : ""}`}>
+        <div
+          className={`flashcard w-full h-full relative ${showAnswer ? "flipped" : ""}`}
+        >
           {/* Front - Question */}
           <div className="flashcard-face absolute inset-0 bg-gradient-to-br from-pink-100 to-purple-100 rounded-2xl border-4 border-pink-200 p-4 md:p-6 flex flex-col items-center justify-center">
             <Sparkles className="text-purple-400 w-6 h-6 md:w-8 md:h-8 mb-3 md:mb-4" />
