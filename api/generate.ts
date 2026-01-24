@@ -36,49 +36,100 @@ export default async function handler(req: Request) {
                                 text: `<examples>
 <example>
 <example_description>
-It correctly recognized the language and format of the given text, not generating own questions or text but merely copied since a specified structure was found. 
+Simple Q&A format - correctly recognized and converted to flashcards.
 </example_description>
 <TEXT>
-I. Istoric și Concepte Fundamentale
-1.	Care dintre următorii este considerat părintele geneticii moderne?
-o	Răspuns: Gregor Mendel 
-2.	În ce a constat The Human Genome Project?
-o	Răspuns: Genotiparea a peste 3 miliarde de litere ale genomului uman 
-3.	Primul cercetător care a oferit dovezi despre faptul că genele sunt localizate pe cromozomi a fost:
-o	Răspuns: Morgan 
-4.	Watson și Crick au descoperit structura ADN-ului utilizând preponderent:
-o	Răspuns: Machete din carton 
-5.	Care dintre următorii cercetători a avut o contribuție fundamentală la descoperirea formei ADN-ului, dar nu a primit premiul Nobel?
-o	Răspuns: Rosalind Franklin 
-
+1. What is the capital of France?
+Answer: Paris
+2. What is the largest planet?
+Answer: Jupiter
 </TEXT>
 <ideal_output>
 {
-    "title": "EXAMEN GENETICĂ COMPORTAMENTALĂ UMANĂ - BANCĂ DE ÎNTREBĂRI",
+    "title": "Geography & Science Quiz",
     "cards": [
         {
-            "question": "Care dintre următorii este considerat părintele geneticii moderne?",
-            "answer": "Gregor Mendel"
+            "question": "What is the capital of France?",
+            "answer": "Paris"
         },
         {
-            "question": "În ce a constat The Human Genome Project?",
-            "answer": "Genotiparea a peste 3 miliarde de litere ale genomului uman"
-        },
-        {
-            "question": "Primul cercetător care a oferit dovezi despre faptul că genele sunt localizate pe cromozomi a fost:",
-            "answer": "Morgan"
-        },
-        {
-            "question": "Watson și Crick au descoperit structura ADN-ului utilizând preponderent:",
-            "answer": "Machete din carton"
-        },
-        {
-            "question": "Care dintre următorii cercetători a avut o contribuție fundamentală la descoperirea formei ADN-ului, dar nu a primit premiul Nobel?",
-            "answer": "Rosalind Franklin"
+            "question": "What is the largest planet?",
+            "answer": "Jupiter"
         }
     ]
 }
+</ideal_output>
+</example>
 
+<example>
+<example_description>
+Multiple choice format detected - preserves options and marks correct answer.
+</example_description>
+<TEXT>
+1. Which planet is known as the Red Planet?
+a) Venus
+b) Mars
+c) Jupiter
+d) Saturn
+Answer: b) Mars
+
+2. What is H2O commonly known as?
+a) Salt
+b) Sugar
+c) Water
+d) Oxygen
+Answer: c) Water
+</TEXT>
+<ideal_output>
+{
+    "title": "Science Multiple Choice",
+    "cards": [
+        {
+            "question": "Which planet is known as the Red Planet?",
+            "answer": "Mars",
+            "options": ["Venus", "Mars", "Jupiter", "Saturn"],
+            "correctIndex": 1
+        },
+        {
+            "question": "What is H2O commonly known as?",
+            "answer": "Water",
+            "options": ["Salt", "Sugar", "Water", "Oxygen"],
+            "correctIndex": 2
+        }
+    ]
+}
+</ideal_output>
+</example>
+
+<example>
+<example_description>
+Plain text - AI generates questions AND creates multiple choice options where appropriate.
+</example_description>
+<TEXT>
+Photosynthesis is the process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen. This process occurs in the chloroplasts, specifically in structures containing chlorophyll.
+</TEXT>
+<ideal_output>
+{
+    "title": "Photosynthesis",
+    "cards": [
+        {
+            "question": "What is photosynthesis?",
+            "answer": "The process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen"
+        },
+        {
+            "question": "Where does photosynthesis occur in plant cells?",
+            "answer": "Chloroplasts",
+            "options": ["Mitochondria", "Chloroplasts", "Nucleus", "Cell membrane"],
+            "correctIndex": 1
+        },
+        {
+            "question": "What are the inputs of photosynthesis?",
+            "answer": "Sunlight, water, and carbon dioxide",
+            "options": ["Glucose and oxygen", "Sunlight, water, and carbon dioxide", "ATP and NADPH", "Chlorophyll only"],
+            "correctIndex": 1
+        }
+    ]
+}
 </ideal_output>
 </example>
 </examples>
@@ -89,7 +140,7 @@ You will be creating flashcards from text provided by the user. Here is the text
 ${text}
 </text>
 
-Your task is to create flashcards that will help someone study and learn the key information from this text. Each flashcard should have a question and an answer.
+Your task is to create flashcards that will help someone study and learn the key information from this text. Each flashcard should have a question and an answer, and optionally multiple choice options.
 
 Format your response as a JSON object following this exact structure:
 
@@ -98,20 +149,23 @@ Format your response as a JSON object following this exact structure:
     "cards": [
         {
             "question": "Question here?",
-            "answer": "Answer here"
+            "answer": "Correct answer here",
+            "options": ["Wrong option 1", "Correct answer", "Wrong option 2", "Wrong option 3"],
+            "correctIndex": 1
         }
     ]
 }
 
 Guidelines for creating effective flashcards:
 - Check what language is being used, and do not deviate from that language.
-- If the text is already formatted in a Question - Answer format, do not generate any questions or answers but merely format them into the JSON structure
-- Extract the most important concepts, facts, definitions, and relationships from the text
-- Write clear, specific questions that test understanding of one concept at a time
-- Keep answers concise but complete enough to be informative
-- Create multiple flashcards if the text covers multiple topics or concepts
-- Use question formats like "What is...", "Define...", "How does...", "Why does...", etc.
-- Avoid overly broad questions that would require very long answers
+- If the text already has multiple choice questions, PRESERVE the options and identify the correct answer index
+- If the text is Q&A format without options, you may create it as a simple flashcard OR generate plausible wrong options to make it multiple choice
+- For factual questions (definitions, names, dates, places), prefer creating multiple choice with 4 options
+- For conceptual/explanation questions, a simple Q&A without options is fine
+- The "answer" field should always contain the correct answer text
+- The "correctIndex" is the 0-based index of the correct answer in the "options" array
+- Make wrong options plausible but clearly incorrect to someone who knows the material
+- Keep options similar in length and style to the correct answer
 
 Output ONLY the valid JSON object, without any additional text, explanation, or markdown code fences. Begin directly with { and end with }.`,
                             },

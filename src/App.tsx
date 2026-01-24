@@ -40,7 +40,7 @@ const STORAGE_KEYS = {
   DECKS: "flashcard-decks",
 } as const;
 
-// Get API key from environment variable
+// Get API key from environment variable (VITE_ prefix required for Vite to expose it)
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
 
 // Create the preloaded deck from ExampleDeck
@@ -147,7 +147,14 @@ export default function App() {
     const newDeck: Deck = {
       id: Date.now().toString(),
       name,
-      cards: cards.map((card) => createFlashcard(card.question, card.answer)),
+      cards: cards.map((card) =>
+        createFlashcard(
+          card.question,
+          card.answer,
+          card.options,
+          card.correctIndex,
+        ),
+      ),
       createdAt: new Date(),
     };
 

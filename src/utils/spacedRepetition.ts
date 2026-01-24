@@ -52,11 +52,18 @@ export function getDueCards(cards: Flashcard[], maxCards: number = 20): Flashcar
 }
 
 // Create a new flashcard with default spaced repetition values
-export function createFlashcard(question: string, answer: string): Flashcard {
+export function createFlashcard(
+    question: string,
+    answer: string,
+    options?: string[],
+    correctIndex?: number
+): Flashcard {
     return {
         id: Date.now().toString() + Math.random().toString(36),
         question,
         answer,
+        options,
+        correctIndex,
         interval: 0,
         easeFactor: 2.5,
         repetitions: 0,

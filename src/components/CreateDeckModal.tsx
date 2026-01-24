@@ -27,7 +27,7 @@ export function CreateDeckModal({
     const isDev = import.meta.env.DEV;
     if (isDev && !apiKey) {
       alert(
-        "API key not configured. Please add VITE_ANTHROPIC_API_KEY to your .env file.",
+        "API key not configured. Please add ANTHROPIC_API_KEY to your .env file.",
       );
       return;
     }
@@ -152,10 +152,34 @@ export function CreateDeckModal({
                     key={index}
                     className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-2"
                   >
-                    <p className="text-purple-700 text-xs md:text-sm font-medium">
-                      Q: {card.question}
-                    </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-purple-700 text-xs md:text-sm font-medium flex-1">
+                        Q: {card.question}
+                      </p>
+                      {card.options && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full whitespace-nowrap">
+                          Multiple Choice
+                        </span>
+                      )}
+                    </div>
                     <p className="text-purple-500 text-xs">A: {card.answer}</p>
+                    {card.options && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {card.options.map((opt, i) => (
+                          <span
+                            key={i}
+                            className={`text-[10px] px-1.5 py-0.5 rounded ${
+                              i === card.correctIndex
+                                ? "bg-green-100 text-green-600"
+                                : "bg-gray-100 text-gray-500"
+                            }`}
+                          >
+                            {String.fromCharCode(65 + i)}){" "}
+                            {opt.length > 20 ? opt.slice(0, 20) + "..." : opt}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
