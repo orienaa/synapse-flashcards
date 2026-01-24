@@ -129,8 +129,13 @@ export function FlashcardStudy({
         // Regular Flashcard (reveal style - question stays visible, answer appears below)
         <div className="w-full max-w-md">
           {/* Question - always visible */}
-          <div className="bg-gradient-to-br from-pink-100 to-purple-100 rounded-2xl border-4 border-pink-200 p-4 md:p-6 flex flex-col items-center justify-center min-h-32 md:min-h-40">
-            <Sparkles className="text-purple-400 w-5 h-5 md:w-6 md:h-6 mb-2 md:mb-3" />
+          <div className="bg-gradient-to-br from-pink-100 to-purple-100 rounded-2xl border-4 border-pink-200 p-4 md:p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="text-purple-400 w-4 h-4" />
+              <span className="text-purple-400 text-xs font-medium uppercase tracking-wide">
+                Question
+              </span>
+            </div>
             <p className="text-purple-700 text-base md:text-lg lg:text-xl text-center font-medium">
               {currentCard.question}
             </p>
@@ -138,8 +143,13 @@ export function FlashcardStudy({
 
           {/* Answer - revealed when showAnswer is true */}
           {showAnswer && (
-            <div className="mt-3 bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl border-4 border-purple-200 p-4 md:p-6 flex flex-col items-center justify-center min-h-24 md:min-h-32 animate-fade-in">
-              <Heart className="text-pink-400 fill-pink-400 w-5 h-5 md:w-6 md:h-6 mb-2 md:mb-3" />
+            <div className="mt-3 bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl border-4 border-purple-200 p-4 md:p-6 animate-fade-in">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="text-pink-400 fill-pink-400 w-4 h-4" />
+                <span className="text-pink-400 text-xs font-medium uppercase tracking-wide">
+                  Answer
+                </span>
+              </div>
               <p className="text-purple-700 text-base md:text-lg lg:text-xl text-center font-medium">
                 {currentCard.answer}
               </p>
