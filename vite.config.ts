@@ -29,8 +29,9 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
-  base: "/flashcards/",
+  // Use root path for Vercel deployment (change to "/flashcards/" for GitHub Pages)
+  base: "/",
   build: {
-    outDir: "../dist",
+    outDir: "dist",
   }
 }));

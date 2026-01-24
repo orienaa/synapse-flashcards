@@ -4,7 +4,7 @@ import type { ParsedCard } from "../types";
 import { parseFlashcardsWithAI } from "../utils/ai";
 
 interface CreateDeckModalProps {
-  apiKey: string;
+  apiKey?: string;
   onClose: () => void;
   onCreate: (name: string, cards: ParsedCard[]) => void;
 }
@@ -23,7 +23,9 @@ export function CreateDeckModal({
   const handleParseText = async () => {
     if (!inputText.trim()) return;
 
-    if (!apiKey) {
+    // In development, require API key; in production, serverless function handles it
+    const isDev = import.meta.env.DEV;
+    if (isDev && !apiKey) {
       alert(
         "API key not configured. Please add VITE_ANTHROPIC_API_KEY to your .env file.",
       );

@@ -1,0 +1,22 @@
+# Tauri build artifacts (very large)
+
+src-tauri/target
+
+# Node modules (Vercel installs fresh)
+
+node_modules
+
+# Local env files
+
+.env
+.env.local
+\*.local
+
+# Logs
+
+\*.log
+
+# Editor files
+
+.vscode
+.idea
