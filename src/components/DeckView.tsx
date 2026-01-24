@@ -273,11 +273,10 @@ export function DeckView({ deck, onStudy }: DeckViewProps) {
         </div>
         <button
           onClick={() => onStudy(deck)}
-          disabled={dueCount === 0}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-pink-400 to-purple-400 text-white text-xs md:text-sm hover:from-pink-500 hover:to-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-pink-400 to-purple-400 text-white text-xs md:text-sm hover:from-pink-500 hover:to-purple-500 transition-all flex items-center gap-1"
         >
           <Brain className="w-4 h-4" />
-          Study ({dueCount} due)
+          Study {dueCount > 0 ? `(${dueCount} due)` : ""}
         </button>
       </div>
 

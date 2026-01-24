@@ -40,15 +40,15 @@ export function calculateNextReview(
     return newCard;
 }
 
-// Get cards due for review
+// Get cards for review - prioritizes due cards, then includes upcoming cards sorted by date
 export function getDueCards(cards: Flashcard[], maxCards: number = 20): Flashcard[] {
-    const now = new Date();
-    const dueCards = cards.filter((card) => new Date(card.nextReview) <= now);
+    // Sort ALL cards by next review date (closest first)
+    const sortedCards = [...cards].sort(
+        (a, b) => new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime()
+    );
 
-    // Sort by next review date (oldest first) and limit
-    return dueCards
-        .sort((a, b) => new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime())
-        .slice(0, maxCards);
+    // Return up to maxCards
+    return sortedCards.slice(0, maxCards);
 }
 
 // Create a new flashcard with default spaced repetition values

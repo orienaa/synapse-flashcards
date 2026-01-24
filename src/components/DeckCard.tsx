@@ -78,8 +78,7 @@ export function DeckCard({ deck, onDelete, onView, onStudy }: DeckCardProps) {
         </button>
         <button
           onClick={() => onStudy(deck)}
-          disabled={dueCount === 0}
-          className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-pink-400 to-purple-400 text-white text-xs md:text-sm hover:from-pink-500 hover:to-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+          className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-pink-400 to-purple-400 text-white text-xs md:text-sm hover:from-pink-500 hover:to-purple-500 transition-all flex items-center justify-center gap-1"
         >
           <Brain className="w-3.5 h-3.5" />
           Study

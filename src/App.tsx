@@ -74,6 +74,9 @@ export default function App() {
     easy: 0,
   });
 
+  // Quiz settings
+  const [quizCardCount, setQuizCardCount] = useState(20);
+
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
@@ -170,13 +173,13 @@ export default function App() {
   };
 
   const handleStartStudy = (deck: Deck) => {
-    const dueCards = getDueCards(deck.cards, 20);
-    if (dueCards.length === 0) {
-      alert("No cards due for review! Come back later.");
+    if (deck.cards.length === 0) {
+      alert("This deck has no cards yet!");
       return;
     }
+    const cardsToStudy = getDueCards(deck.cards, quizCardCount);
     setSelectedDeck(deck);
-    setStudyCards(dueCards);
+    setStudyCards(cardsToStudy);
     setCurrentCardIndex(0);
     setSessionStats({ correct: 0, forgot: 0, easy: 0 });
     setView("study");
@@ -274,6 +277,8 @@ export default function App() {
         user={user}
         onSignIn={() => setShowAuthModal(true)}
         onSignOut={handleSignOut}
+        quizCardCount={quizCardCount}
+        onQuizCardCountChange={setQuizCardCount}
       />
 
       {/* Main Content Card */}
