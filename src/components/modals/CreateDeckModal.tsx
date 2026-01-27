@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, Sparkles, Brain, Loader2 } from "lucide-react";
-import type { ParsedCard } from "../types";
-import { parseFlashcardsWithAI } from "../utils/ai";
+import type { ParsedCard } from "../../types";
+import { parseFlashcardsWithAI } from "../../utils/ai";
 
 interface CreateDeckModalProps {
   apiKey?: string;

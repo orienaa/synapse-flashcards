@@ -119,7 +119,7 @@ export const ExampleDeck = {
         },
         {
             "question": "Variantele care se exprimă în genotip doar atunci când aceeași alelă e moștenită de la fiecare părinte se numesc:",
-            "answer": "Homozigote"
+            "answer": "Recesive"
         },
         {
             "question": "Un organism care conține o alelă dominantă și una recesivă (Aa) va exprima întotdeauna caracteristicile codate de:",
@@ -163,7 +163,7 @@ export const ExampleDeck = {
         },
         {
             "question": "Constatarea lui Morgan conform căreia genele care determină culoarea ochilor și sexul sunt situate în aceeași arie (locus) și se transmit împreună reprezintă o excepție de la legea/principiul:",
-            "answer": "Legea segregării (segregation)"
+            "answer": "Legea combinării independente"
         },
         {
             "question": "Pattern-ul de ereditate descoperit de Morgan în care genele situate pe cromozomii sexuali (X/Y) se exprimă diferit deoarece femelele au două copii ale cromozomului X (XX), iar masculii doar una (XY) se numește:",
@@ -243,7 +243,7 @@ export const ExampleDeck = {
         },
         {
             "question": "Atunci când c2 este .30, iar h2 este .45, rezultă că u2 are valoarea de?",
-            "answer": "nu se poate calcula"
+            "answer": "0.25"
         },
         {
             "question": "Ideea introdusă de Ronald Fisher și Sewall Wright, conform căreia ereditatea multiplă sau poligenică duce la distribuția fenotipurilor pe un continuum, se numește:",

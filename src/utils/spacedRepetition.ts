@@ -58,18 +58,26 @@ export function createFlashcard(
     options?: string[],
     correctIndex?: number
 ): Flashcard {
-    return {
+    const flashcard: Flashcard = {
         id: Date.now().toString() + Math.random().toString(36),
         question,
         answer,
-        options,
-        correctIndex,
         interval: 0,
         easeFactor: 2.5,
         repetitions: 0,
         nextReview: new Date(),
         lastReview: null,
     };
+
+    // Only add optional fields if they have values (Firebase doesn't accept undefined)
+    if (options !== undefined) {
+        flashcard.options = options;
+    }
+    if (correctIndex !== undefined) {
+        flashcard.correctIndex = correctIndex;
+    }
+
+    return flashcard;
 }
 
 // Get deck statistics

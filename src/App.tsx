@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { User } from "firebase/auth";
 import "./App.css";
 
@@ -9,6 +9,7 @@ import type {
   StudyResponse,
   ParsedCard,
   SessionStats,
+  Folder,
 } from "./types";
 import {
   calculateNextReview,
@@ -22,26 +23,37 @@ import {
   saveDeckToCloud,
   deleteCloudDeck,
   subscribeToDecks,
+  saveFolderToCloud,
+  deleteCloudFolder,
+  subscribeToFolders,
 } from "./utils/firebase";
+import {
+  loadDecksFromStorage,
+  loadFoldersFromStorage,
+  saveDecksToStorage,
+  saveFoldersToStorage,
+} from "./utils/storage";
 import {
   Header,
   Footer,
-  DecorativeElements,
-  EmptyState,
-  DeckCard,
   DeckView,
   FlashcardStudy,
   CreateDeckModal,
   Navigation,
   AuthModal,
+  SessionComplete,
+  HomeView,
+  AnkiImportModal,
 } from "./components";
-
-const STORAGE_KEYS = {
-  DECKS: "flashcard-decks",
-} as const;
+import { useStreak, useTheme, useStudyTimer, useSettings } from "./hooks";
+import { AnkiDeck } from "./utils/anki";
 
 // Get API key from environment variable (VITE_ prefix required for Vite to expose it)
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
+
+// Generate unique IDs
+const generateId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 // Create the preloaded deck from ExampleDeck
 function createPreloadedDeck(): Deck {
@@ -62,8 +74,10 @@ export default function App() {
 
   const [view, setView] = useState<View>("home");
   const [decks, setDecks] = useState<Deck[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAnkiImportModal, setShowAnkiImportModal] = useState(false);
 
   // Study state
   const [studyCards, setStudyCards] = useState<Flashcard[]>([]);
@@ -75,7 +89,33 @@ export default function App() {
   });
 
   // Quiz settings
-  const [quizCardCount, setQuizCardCount] = useState(20);
+  const { quizCardCount, shuffleMode, setQuizCardCount, setShuffleMode } =
+    useSettings();
+
+  // Streak tracking (with Firebase sync when logged in)
+  const { currentStreak, longestStreak, studiedToday, recordStudySession } =
+    useStreak(user?.uid);
+
+  // Theme management
+  const { isDark, toggleTheme } = useTheme();
+
+  // Study session timer
+  const {
+    formattedTime: studyTimer,
+    restart: restartTimer,
+    reset: resetTimer,
+  } = useStudyTimer();
+
+  // Calculate total due cards across all decks
+  const totalDueCards = useMemo(() => {
+    const now = new Date();
+    return decks.reduce((total, deck) => {
+      const dueInDeck = deck.cards.filter(
+        (card) => new Date(card.nextReview) <= now,
+      ).length;
+      return total + dueInDeck;
+    }, 0);
+  }, [decks]);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -91,8 +131,8 @@ export default function App() {
     if (authLoading) return;
 
     if (user) {
-      // Subscribe to real-time cloud sync
-      const unsubscribe = subscribeToDecks(user.uid, (cloudDecks) => {
+      // Subscribe to real-time cloud sync for decks
+      const unsubscribeDecks = subscribeToDecks(user.uid, (cloudDecks) => {
         // Add example deck if no decks exist
         if (cloudDecks.length === 0) {
           const preloadedDeck = createPreloadedDeck();
@@ -101,27 +141,20 @@ export default function App() {
           setDecks(cloudDecks);
         }
       });
-      return unsubscribe;
+      // Subscribe to real-time cloud sync for folders
+      const unsubscribeFolders = subscribeToFolders(
+        user.uid,
+        (cloudFolders) => {
+          setFolders(cloudFolders);
+        },
+      );
+      return () => {
+        unsubscribeDecks();
+        unsubscribeFolders();
+      };
     } else {
       // Load from localStorage for non-logged-in users
-      const savedDecks = localStorage.getItem(STORAGE_KEYS.DECKS);
-      let loadedDecks: Deck[] = [];
-
-      if (savedDecks) {
-        try {
-          loadedDecks = JSON.parse(savedDecks).map((deck: any) => ({
-            ...deck,
-            createdAt: new Date(deck.createdAt),
-            cards: deck.cards.map((card: any) => ({
-              ...card,
-              nextReview: new Date(card.nextReview),
-              lastReview: card.lastReview ? new Date(card.lastReview) : null,
-            })),
-          }));
-        } catch (e) {
-          console.error("Failed to parse saved decks:", e);
-        }
-      }
+      let loadedDecks = loadDecksFromStorage();
 
       const hasExampleDeck = loadedDecks.some((d) => d.id === "example-deck");
       if (loadedDecks.length === 0 || !hasExampleDeck) {
@@ -133,15 +166,23 @@ export default function App() {
       }
 
       setDecks(loadedDecks);
+      setFolders(loadFoldersFromStorage());
     }
   }, [user, authLoading]);
 
   // Save decks to localStorage (only when not logged in)
   useEffect(() => {
     if (!user && !authLoading && decks.length > 0) {
-      localStorage.setItem(STORAGE_KEYS.DECKS, JSON.stringify(decks));
+      saveDecksToStorage(decks);
     }
   }, [decks, user, authLoading]);
+
+  // Save folders to localStorage (only when not logged in)
+  useEffect(() => {
+    if (!user && !authLoading) {
+      saveFoldersToStorage(folders);
+    }
+  }, [folders, user, authLoading]);
 
   const handleCreateDeck = async (name: string, cards: ParsedCard[]) => {
     const newDeck: Deck = {
@@ -166,6 +207,31 @@ export default function App() {
     setShowCreateModal(false);
   };
 
+  // Import multiple Anki decks
+  const handleImportAnkiDecks = async (ankiDecks: AnkiDeck[]) => {
+    const newDecks: Deck[] = ankiDecks.map((ankiDeck, index) => ({
+      id: `${Date.now()}-${index}`,
+      name: ankiDeck.name,
+      cards: ankiDeck.cards.map((card: ParsedCard) =>
+        createFlashcard(
+          card.question,
+          card.answer,
+          card.options,
+          card.correctIndex,
+        ),
+      ),
+      createdAt: new Date(),
+    }));
+
+    if (user) {
+      for (const deck of newDecks) {
+        await saveDeckToCloud(user.uid, deck);
+      }
+    } else {
+      setDecks([...decks, ...newDecks]);
+    }
+  };
+
   const handleDeleteDeck = async (deckId: string) => {
     if (user) {
       await deleteCloudDeck(user.uid, deckId);
@@ -179,16 +245,26 @@ export default function App() {
     }
   };
 
-  const handleStartStudy = (deck: Deck) => {
-    if (deck.cards.length === 0) {
+  const handleStartStudy = (deck: Deck, customCards?: Flashcard[]) => {
+    const cardsSource = customCards || deck.cards;
+    if (cardsSource.length === 0) {
       alert("This deck has no cards yet!");
       return;
     }
-    const cardsToStudy = getDueCards(deck.cards, quizCardCount);
+    let cardsToStudy = customCards
+      ? customCards.slice(0, quizCardCount) // For custom selection, just take the cards
+      : getDueCards(deck.cards, quizCardCount); // For full deck, get due cards
+
+    // Shuffle if enabled
+    if (shuffleMode) {
+      cardsToStudy = [...cardsToStudy].sort(() => Math.random() - 0.5);
+    }
+
     setSelectedDeck(deck);
     setStudyCards(cardsToStudy);
     setCurrentCardIndex(0);
     setSessionStats({ correct: 0, forgot: 0, easy: 0 });
+    restartTimer(); // Start/restart timer
     setView("study");
   };
 
@@ -231,8 +307,9 @@ export default function App() {
     if (currentCardIndex < studyCards.length - 1) {
       setCurrentCardIndex((prev) => prev + 1);
     } else {
-      // Session complete
-      setView("home");
+      // Session complete - record for streak and show completion screen
+      recordStudySession();
+      setView("session-complete");
     }
   };
 
@@ -241,31 +318,177 @@ export default function App() {
     setView("deck-view");
   };
 
+  // Helper to save deck and update selection
+  const saveDeckAndUpdateSelection = async (updatedDeck: Deck) => {
+    if (user) {
+      await saveDeckToCloud(user.uid, updatedDeck);
+    } else {
+      setDecks(decks.map((d) => (d.id === updatedDeck.id ? updatedDeck : d)));
+    }
+    setSelectedDeck(updatedDeck);
+  };
+
+  const handleUpdateCard = async (
+    cardId: string,
+    updates: Partial<Flashcard>,
+  ) => {
+    if (!selectedDeck) return;
+
+    const updatedDeck = {
+      ...selectedDeck,
+      cards: selectedDeck.cards.map((card) =>
+        card.id === cardId ? { ...card, ...updates } : card,
+      ),
+    };
+    await saveDeckAndUpdateSelection(updatedDeck);
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    if (!selectedDeck) return;
+
+    const updatedDeck = {
+      ...selectedDeck,
+      cards: selectedDeck.cards.filter((card) => card.id !== cardId),
+    };
+    await saveDeckAndUpdateSelection(updatedDeck);
+  };
+
+  const handleAddCard = async (cardData: Omit<Flashcard, "id">) => {
+    if (!selectedDeck) return;
+
+    const newCard: Flashcard = {
+      ...cardData,
+      id: generateId("card"),
+    };
+
+    const updatedDeck = {
+      ...selectedDeck,
+      cards: [...selectedDeck.cards, newCard],
+    };
+    await saveDeckAndUpdateSelection(updatedDeck);
+  };
+
+  const handleRenameDeck = async (newName: string) => {
+    if (!selectedDeck) return;
+
+    const updatedDeck = {
+      ...selectedDeck,
+      name: newName,
+    };
+    await saveDeckAndUpdateSelection(updatedDeck);
+  };
+
+  // Folder handlers
+  const handleCreateFolder = async (name: string, color: string) => {
+    const newFolder: Folder = {
+      id: generateId("folder"),
+      name,
+      color,
+      order: folders.length,
+      createdAt: new Date(),
+    };
+
+    if (user) {
+      await saveFolderToCloud(user.uid, newFolder);
+    } else {
+      setFolders([...folders, newFolder]);
+    }
+  };
+
+  const handleUpdateFolder = async (
+    folderId: string,
+    name: string,
+    color: string,
+  ) => {
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+
+    const updatedFolder = { ...folder, name, color };
+
+    if (user) {
+      await saveFolderToCloud(user.uid, updatedFolder);
+    } else {
+      setFolders(folders.map((f) => (f.id === folderId ? updatedFolder : f)));
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    // Move all decks in this folder to root
+    const decksInFolder = decks.filter((d) => d.folderId === folderId);
+    for (const deck of decksInFolder) {
+      const updatedDeck = { ...deck, folderId: null };
+      if (user) {
+        await saveDeckToCloud(user.uid, updatedDeck);
+      } else {
+        setDecks((prev) =>
+          prev.map((d) => (d.id === deck.id ? updatedDeck : d)),
+        );
+      }
+    }
+
+    if (user) {
+      await deleteCloudFolder(user.uid, folderId);
+    } else {
+      setFolders(folders.filter((f) => f.id !== folderId));
+    }
+  };
+
+  const handleMoveDeckToFolder = async (
+    deckId: string,
+    folderId: string | null,
+  ) => {
+    const deck = decks.find((d) => d.id === deckId);
+    if (!deck) return;
+
+    const updatedDeck = { ...deck, folderId };
+
+    if (user) {
+      await saveDeckToCloud(user.uid, updatedDeck);
+    } else {
+      setDecks(decks.map((d) => (d.id === deckId ? updatedDeck : d)));
+    }
+  };
+
+  const handleReorderDecks = async (
+    reorderedIds: string[],
+    _folderId: string | null,
+  ) => {
+    // Update order for each deck in the reordered list
+    const updatedDecks = decks.map((deck) => {
+      const newOrder = reorderedIds.indexOf(deck.id);
+      if (newOrder !== -1) {
+        return { ...deck, order: newOrder };
+      }
+      return deck;
+    });
+
+    if (user) {
+      // Save all reordered decks
+      for (const id of reorderedIds) {
+        const deck = updatedDecks.find((d) => d.id === id);
+        if (deck) {
+          await saveDeckToCloud(user.uid, deck);
+        }
+      }
+    } else {
+      setDecks(updatedDecks);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     setDecks([]);
+    setFolders([]);
+
     // Reload local decks after sign out
-    const savedDecks = localStorage.getItem(STORAGE_KEYS.DECKS);
-    if (savedDecks) {
-      try {
-        const loadedDecks = JSON.parse(savedDecks).map((deck: any) => ({
-          ...deck,
-          createdAt: new Date(deck.createdAt),
-          cards: deck.cards.map((card: any) => ({
-            ...card,
-            nextReview: new Date(card.nextReview),
-            lastReview: card.lastReview ? new Date(card.lastReview) : null,
-          })),
-        }));
-        setDecks(loadedDecks);
-      } catch (e) {
-        const preloadedDeck = createPreloadedDeck();
-        setDecks([preloadedDeck]);
-      }
+    const loadedDecks = loadDecksFromStorage();
+    if (loadedDecks.length > 0) {
+      setDecks(loadedDecks);
     } else {
-      const preloadedDeck = createPreloadedDeck();
-      setDecks([preloadedDeck]);
+      setDecks([createPreloadedDeck()]);
     }
+
+    setFolders(loadFoldersFromStorage());
   };
 
   if (authLoading) {
@@ -279,50 +502,66 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 p-3 md:p-4 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-gray-900 dark:via-purple-950 dark:to-gray-900 p-3 md:p-4 flex flex-col transition-colors">
       <Header
         user={user}
         onSignIn={() => setShowAuthModal(true)}
         onSignOut={handleSignOut}
         quizCardCount={quizCardCount}
         onQuizCardCountChange={setQuizCardCount}
+        shuffleMode={shuffleMode}
+        onShuffleModeChange={setShuffleMode}
+        currentStreak={currentStreak}
+        longestStreak={longestStreak}
+        studiedToday={studiedToday}
+        isDark={isDark}
+        onToggleTheme={toggleTheme}
+        totalDueCards={totalDueCards}
       />
 
       {/* Main Content Card */}
-      <div className="flex-1 bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-3 md:p-4 border-4 border-pink-200 flex flex-col min-h-0">
+      <div className="flex-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-2xl shadow-2xl p-3 md:p-4 border-4 border-pink-200 dark:border-purple-800 flex flex-col min-h-0 transition-colors">
         <Navigation
           view={view}
           selectedDeck={selectedDeck}
           currentCardIndex={currentCardIndex}
           studyCardsLength={studyCards.length}
-          onBack={() => setView("home")}
+          onBack={() => {
+            if (view === "study") resetTimer();
+            setView("home");
+          }}
           onCreateDeck={() => setShowCreateModal(true)}
+          onImportAnki={() => setShowAnkiImportModal(true)}
+          studyTimer={view === "study" ? studyTimer : undefined}
         />
-
-        <DecorativeElements />
 
         {/* Content based on view */}
         <div className="flex-1 min-h-0 overflow-auto">
           {view === "home" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-              {decks.length === 0 ? (
-                <EmptyState />
-              ) : (
-                decks.map((deck) => (
-                  <DeckCard
-                    key={deck.id}
-                    deck={deck}
-                    onDelete={handleDeleteDeck}
-                    onView={handleViewDeck}
-                    onStudy={handleStartStudy}
-                  />
-                ))
-              )}
-            </div>
+            <HomeView
+              decks={decks}
+              folders={folders}
+              onDeleteDeck={handleDeleteDeck}
+              onViewDeck={handleViewDeck}
+              onStudyDeck={handleStartStudy}
+              onMoveDeckToFolder={handleMoveDeckToFolder}
+              onCreateFolder={handleCreateFolder}
+              onUpdateFolder={handleUpdateFolder}
+              onDeleteFolder={handleDeleteFolder}
+              onReorderDecks={handleReorderDecks}
+            />
           )}
 
           {view === "deck-view" && selectedDeck && (
-            <DeckView deck={selectedDeck} onStudy={handleStartStudy} />
+            <DeckView
+              deck={selectedDeck}
+              onStudy={handleStartStudy}
+              onUpdateCard={handleUpdateCard}
+              onDeleteCard={handleDeleteCard}
+              onAddCard={handleAddCard}
+              onRenameDeck={handleRenameDeck}
+              onImportAnkiDecks={handleImportAnkiDecks}
+            />
           )}
 
           {view === "study" && studyCards.length > 0 && (
@@ -331,6 +570,20 @@ export default function App() {
               currentIndex={currentCardIndex}
               sessionStats={sessionStats}
               onResponse={handleResponse}
+            />
+          )}
+
+          {view === "session-complete" && selectedDeck && (
+            <SessionComplete
+              stats={sessionStats}
+              deckName={selectedDeck.name}
+              currentStreak={currentStreak}
+              studyTime={studyTimer}
+              onGoHome={() => {
+                resetTimer();
+                setView("home");
+              }}
+              onStudyAgain={() => handleStartStudy(selectedDeck)}
             />
           )}
         </div>
@@ -344,6 +597,13 @@ export default function App() {
           apiKey={API_KEY}
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateDeck}
+        />
+      )}
+
+      {showAnkiImportModal && (
+        <AnkiImportModal
+          onClose={() => setShowAnkiImportModal(false)}
+          onImport={handleImportAnkiDecks}
         />
       )}
 

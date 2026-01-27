@@ -15,13 +15,14 @@ import {
     doc,
     setDoc,
     getDocs,
+    getDoc,
     deleteDoc,
     onSnapshot,
     query,
     orderBy,
     type Unsubscribe,
 } from "firebase/firestore";
-import type { Deck } from "../types";
+import type { Deck, Folder } from "../types";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -70,12 +71,30 @@ export async function saveDeckToCloud(userId: string, deck: Deck) {
     const deckRef = doc(db, "users", userId, "decks", deck.id);
     await setDoc(deckRef, {
         ...deck,
+        folderId: deck.folderId ?? null,
+        order: deck.order ?? 0,
         createdAt: deck.createdAt instanceof Date ? deck.createdAt.toISOString() : deck.createdAt,
-        cards: deck.cards.map((card) => ({
-            ...card,
-            nextReview: card.nextReview instanceof Date ? card.nextReview.toISOString() : card.nextReview,
-            lastReview: card.lastReview instanceof Date ? card.lastReview?.toISOString() : card.lastReview,
-        })),
+        cards: deck.cards.map((card) => {
+            // Build card object without undefined values (Firebase doesn't accept undefined)
+            const cardData: Record<string, unknown> = {
+                id: card.id,
+                question: card.question,
+                answer: card.answer,
+                interval: card.interval,
+                easeFactor: card.easeFactor,
+                repetitions: card.repetitions,
+                nextReview: card.nextReview instanceof Date ? card.nextReview.toISOString() : card.nextReview,
+                lastReview: card.lastReview instanceof Date ? card.lastReview?.toISOString() : card.lastReview ?? null,
+            };
+            // Only include optional fields if they have values
+            if (card.options !== undefined) {
+                cardData.options = card.options;
+            }
+            if (card.correctIndex !== undefined) {
+                cardData.correctIndex = card.correctIndex;
+            }
+            return cardData;
+        }),
     });
 }
 
@@ -126,5 +145,85 @@ export function subscribeToDecks(
             } as Deck;
         });
         callback(decks);
+    });
+}
+
+// User settings (streak data, preferences)
+export interface UserSettings {
+    streak: {
+        currentStreak: number;
+        longestStreak: number;
+        lastStudyDate: string | null;
+        totalStudyDays: number;
+    };
+    preferences?: {
+        quizCardCount: number;
+        shuffleMode: boolean;
+    };
+}
+
+export async function saveUserSettings(userId: string, settings: UserSettings): Promise<void> {
+    const settingsRef = doc(db, "users", userId, "settings", "user-settings");
+    await setDoc(settingsRef, settings, { merge: true });
+}
+
+export async function getUserSettings(userId: string): Promise<UserSettings | null> {
+    const settingsRef = doc(db, "users", userId, "settings", "user-settings");
+    const snapshot = await getDoc(settingsRef);
+    if (snapshot.exists()) {
+        return snapshot.data() as UserSettings;
+    }
+    return null;
+}
+
+export function subscribeToUserSettings(
+    userId: string,
+    callback: (settings: UserSettings | null) => void
+): Unsubscribe {
+    const settingsRef = doc(db, "users", userId, "settings", "user-settings");
+    return onSnapshot(settingsRef, (snapshot) => {
+        if (snapshot.exists()) {
+            callback(snapshot.data() as UserSettings);
+        } else {
+            callback(null);
+        }
+    });
+}
+
+// Firestore functions for folders
+function getUserFoldersCollection(userId: string) {
+    return collection(db, "users", userId, "folders");
+}
+
+export async function saveFolderToCloud(userId: string, folder: Folder) {
+    const folderRef = doc(db, "users", userId, "folders", folder.id);
+    await setDoc(folderRef, {
+        ...folder,
+        createdAt: folder.createdAt instanceof Date ? folder.createdAt.toISOString() : folder.createdAt,
+    });
+}
+
+export async function deleteCloudFolder(userId: string, folderId: string) {
+    const folderRef = doc(db, "users", userId, "folders", folderId);
+    await deleteDoc(folderRef);
+}
+
+export function subscribeToFolders(
+    userId: string,
+    callback: (folders: Folder[]) => void
+): Unsubscribe {
+    const foldersRef = getUserFoldersCollection(userId);
+    const q = query(foldersRef, orderBy("order", "asc"));
+
+    return onSnapshot(q, (snapshot) => {
+        const folders = snapshot.docs.map((docSnapshot) => {
+            const data = docSnapshot.data();
+            return {
+                ...data,
+                id: docSnapshot.id,
+                createdAt: new Date(data.createdAt),
+            } as Folder;
+        });
+        callback(folders);
     });
 }

@@ -4,7 +4,7 @@ import {
   signInWithEmail,
   signUpWithEmail,
   signInWithGoogle,
-} from "../utils/firebase";
+} from "../../utils/firebase";
 
 interface AuthModalProps {
   onClose: () => void;

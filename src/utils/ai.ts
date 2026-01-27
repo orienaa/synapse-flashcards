@@ -30,7 +30,7 @@ export async function parseFlashcardsWithAI(
                 },
                 body: JSON.stringify({
                     model: "claude-haiku-4-5-20251001",
-                    max_tokens: 8192,
+                    max_tokens: 16384,
                     messages: [
                         {
                             role: "user",
@@ -102,27 +102,29 @@ Rules:
             data = await response.json();
         }
 
-        console.log("API Response:", data);
+        let content = data.content[0].text;
 
-        const content = data.content[0].text;
-        console.log("Raw content:", content);
+        // Strip markdown code fences if present
+        content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 
-        // Extract JSON object from anywhere in the response
-        const jsonMatch = content.match(
-            /\{[\s\S]*?"title"[\s\S]*?"cards"\s*:\s*\[[\s\S]*?\]\s*\}/
-        );
-
-        if (!jsonMatch) {
-            console.error("Could not find JSON in response:", content);
-            throw new Error(
-                "Could not find valid flashcard data in AI response. Please try again."
+        // Try to parse directly first
+        let parsed: AIResponse;
+        try {
+            parsed = JSON.parse(content) as AIResponse;
+        } catch {
+            // If direct parse fails, try to extract JSON object
+            const jsonMatch = content.match(
+                /\{[\s\S]*?"title"[\s\S]*?"cards"\s*:\s*\[[\s\S]*\]\s*\}/
             );
+
+            if (!jsonMatch) {
+                throw new Error(
+                    "Could not find valid flashcard data in AI response. Please try again."
+                );
+            }
+
+            parsed = JSON.parse(jsonMatch[0]) as AIResponse;
         }
-
-        const jsonStr = jsonMatch[0];
-        console.log("Extracted JSON:", jsonStr);
-
-        const parsed = JSON.parse(jsonStr) as AIResponse;
 
         if (!parsed.title || !Array.isArray(parsed.cards)) {
             throw new Error("Invalid response format from AI");
