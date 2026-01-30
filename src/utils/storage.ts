@@ -3,7 +3,38 @@ import type { Deck, Folder } from "../types";
 export const STORAGE_KEYS = {
     DECKS: "flashcard-decks",
     FOLDERS: "flashcard-folders",
+    DELETED_EXAMPLES: "flashcard-deleted-examples",
 } as const;
+/**
+ * Get the set of deleted example deck ids from localStorage
+ */
+export function getDeletedExampleDeckIds(): Set<string> {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_EXAMPLES);
+    if (!raw) return new Set();
+    try {
+        return new Set(JSON.parse(raw));
+    } catch {
+        return new Set();
+    }
+}
+
+/**
+ * Add an example deck id to the deleted set in localStorage
+ */
+export function addDeletedExampleDeckId(deckId: string): void {
+    const ids = getDeletedExampleDeckIds();
+    ids.add(deckId);
+    localStorage.setItem(STORAGE_KEYS.DELETED_EXAMPLES, JSON.stringify(Array.from(ids)));
+}
+
+/**
+ * Remove an example deck id from the deleted set in localStorage (if needed)
+ */
+export function removeDeletedExampleDeckId(deckId: string): void {
+    const ids = getDeletedExampleDeckIds();
+    ids.delete(deckId);
+    localStorage.setItem(STORAGE_KEYS.DELETED_EXAMPLES, JSON.stringify(Array.from(ids)));
+}
 
 /**
  * Parse a deck from JSON storage format, converting date strings to Date objects

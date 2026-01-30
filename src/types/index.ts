@@ -43,6 +43,7 @@ export interface Deck {
     name: string;
     cards: Flashcard[];
     createdAt: Date;
+    version?: number; // Optional version for example decks
     folderId?: string | null; // null or undefined = root level
     order?: number; // For drag-and-drop sorting
 }

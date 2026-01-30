@@ -16,7 +16,7 @@ import {
   getDueCards,
   createFlashcard,
 } from "./utils/spacedRepetition";
-import { ExampleDeck } from "./utils/data";
+import { ExampleDeck, ExampleDeck2 } from "./utils/data";
 import {
   onAuthChange,
   signOut,
@@ -32,7 +32,13 @@ import {
   loadFoldersFromStorage,
   saveDecksToStorage,
   saveFoldersToStorage,
+  getDeletedExampleDeckIds,
+  addDeletedExampleDeckId,
 } from "./utils/storage";
+import {
+  addDeletedExampleDeckIdCloud,
+  subscribeToUserSettings,
+} from "./utils/firebase";
 import {
   Header,
   Footer,
@@ -55,16 +61,36 @@ const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
 const generateId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-// Create the preloaded deck from ExampleDeck
-function createPreloadedDeck(): Deck {
-  return {
-    id: "example-deck",
-    name: ExampleDeck.title,
-    cards: ExampleDeck.cards.map((card) =>
-      createFlashcard(card.question, card.answer),
-    ),
-    createdAt: new Date(),
-  };
+// Create the preloaded decks from ExampleDeck and ExampleDeck2
+function createPreloadedDecks(): Deck[] {
+  return [
+    {
+      id: "example-deck",
+      name: ExampleDeck.title,
+      cards: ExampleDeck.cards.map((card) =>
+        createFlashcard(
+          card.question,
+          card.answer,
+          "options" in card ? (card as any).options : undefined,
+          "correctIndex" in card ? (card as any).correctIndex : undefined,
+        ),
+      ),
+      createdAt: new Date(),
+    },
+    {
+      id: "example-deck-2",
+      name: ExampleDeck2.title,
+      cards: ExampleDeck2.cards.map((card) =>
+        createFlashcard(
+          card.question,
+          card.answer,
+          "options" in card ? (card as any).options : undefined,
+          "correctIndex" in card ? (card as any).correctIndex : undefined,
+        ),
+      ),
+      createdAt: new Date(),
+    },
+  ];
 }
 
 export default function App() {
@@ -104,6 +130,7 @@ export default function App() {
     formattedTime: studyTimer,
     restart: restartTimer,
     reset: resetTimer,
+    pause: pauseTimer,
   } = useStudyTimer();
 
   // Calculate total due cards across all decks
@@ -130,45 +157,59 @@ export default function App() {
   useEffect(() => {
     if (authLoading) return;
 
+    let unsubDecks: (() => void) | null = null;
+    let unsubFolders: (() => void) | null = null;
+    let unsubSettings: (() => void) | null = null;
+
     if (user) {
-      // Subscribe to real-time cloud sync for decks
-      const unsubscribeDecks = subscribeToDecks(user.uid, (cloudDecks) => {
-        // Add example deck if no decks exist
-        if (cloudDecks.length === 0) {
-          const preloadedDeck = createPreloadedDeck();
-          saveDeckToCloud(user.uid, preloadedDeck);
-        } else {
-          setDecks(cloudDecks);
-        }
+      // Subscribe to user settings for deleted example deck ids
+      unsubSettings = subscribeToUserSettings(user.uid, (settings) => {
+        const deletedExampleIds = new Set(
+          settings?.deletedExampleDeckIds || [],
+        );
+        if (unsubDecks) unsubDecks();
+        unsubDecks = subscribeToDecks(user.uid, (cloudDecks) => {
+          const preloadedDecks = createPreloadedDecks();
+          // Only add example decks that are not deleted
+          const missing = preloadedDecks.filter(
+            (deck) =>
+              !cloudDecks.some((d) => d.id === deck.id) &&
+              !deletedExampleIds.has(deck.id),
+          );
+          if (cloudDecks.length === 0 || missing.length > 0) {
+            missing.forEach((deck) => saveDeckToCloud(user.uid, deck));
+            setDecks([...cloudDecks, ...missing]);
+          } else {
+            setDecks(cloudDecks);
+          }
+        });
       });
-      // Subscribe to real-time cloud sync for folders
-      const unsubscribeFolders = subscribeToFolders(
-        user.uid,
-        (cloudFolders) => {
-          setFolders(cloudFolders);
-        },
-      );
+      unsubFolders = subscribeToFolders(user.uid, (cloudFolders) => {
+        setFolders(cloudFolders);
+      });
       return () => {
-        unsubscribeDecks();
-        unsubscribeFolders();
+        if (unsubDecks) unsubDecks();
+        if (unsubFolders) unsubFolders();
+        if (unsubSettings) unsubSettings();
       };
     } else {
       // Load from localStorage for non-logged-in users
       let loadedDecks = loadDecksFromStorage();
-
-      const hasExampleDeck = loadedDecks.some((d) => d.id === "example-deck");
-      if (loadedDecks.length === 0 || !hasExampleDeck) {
-        const preloadedDeck = createPreloadedDeck();
-        loadedDecks = [
-          preloadedDeck,
-          ...loadedDecks.filter((d) => d.id !== "example-deck"),
-        ];
-      }
-
+      const deletedExampleIds = getDeletedExampleDeckIds();
+      const preloadedDecks = createPreloadedDecks();
+      // Add any missing example decks that are not deleted
+      preloadedDecks.forEach((deck) => {
+        if (
+          !loadedDecks.some((d) => d.id === deck.id) &&
+          !deletedExampleIds.has(deck.id)
+        ) {
+          loadedDecks = [deck, ...loadedDecks];
+        }
+      });
       setDecks(loadedDecks);
       setFolders(loadFoldersFromStorage());
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, JSON.stringify(getDeletedExampleDeckIds())]);
 
   // Save decks to localStorage (only when not logged in)
   useEffect(() => {
@@ -233,6 +274,14 @@ export default function App() {
   };
 
   const handleDeleteDeck = async (deckId: string) => {
+    // If deleting an example deck, record it as deleted
+    if (deckId === "example-deck" || deckId === "example-deck-2") {
+      if (user) {
+        await addDeletedExampleDeckIdCloud(user.uid, deckId);
+      } else {
+        addDeletedExampleDeckId(deckId);
+      }
+    }
     if (user) {
       await deleteCloudDeck(user.uid, deckId);
     } else {
@@ -309,6 +358,7 @@ export default function App() {
     } else {
       // Session complete - record for streak and show completion screen
       recordStudySession();
+      pauseTimer(); // Stop the timer when session is complete
       setView("session-complete");
     }
   };
@@ -485,7 +535,7 @@ export default function App() {
     if (loadedDecks.length > 0) {
       setDecks(loadedDecks);
     } else {
-      setDecks([createPreloadedDeck()]);
+      setDecks(createPreloadedDecks());
     }
 
     setFolders(loadFoldersFromStorage());
@@ -493,7 +543,7 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-pink-100 via-purple-100 to-blue-100 flex items-center justify-center">
         <div className="text-purple-500 text-lg animate-pulse">
           Loading... ✨
         </div>
@@ -502,7 +552,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-gray-900 dark:via-purple-950 dark:to-gray-900 p-3 md:p-4 flex flex-col transition-colors">
+    <div className="min-h-screen bg-linear-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-gray-900 dark:via-purple-950 dark:to-gray-900 p-3 md:p-4 flex flex-col transition-colors">
       <Header
         user={user}
         onSignIn={() => setShowAuthModal(true)}

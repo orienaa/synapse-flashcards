@@ -160,6 +160,32 @@ export interface UserSettings {
         quizCardCount: number;
         shuffleMode: boolean;
     };
+    deletedExampleDeckIds?: string[];
+}
+
+// Get deleted example deck ids for a user (from Firestore user-settings)
+export async function getDeletedExampleDeckIdsCloud(userId: string): Promise<Set<string>> {
+    const settings = await getUserSettings(userId);
+    if (settings && Array.isArray(settings.deletedExampleDeckIds)) {
+        return new Set(settings.deletedExampleDeckIds);
+    }
+    return new Set();
+}
+
+// Add a deleted example deck id for a user (Firestore user-settings)
+export async function addDeletedExampleDeckIdCloud(userId: string, deckId: string): Promise<void> {
+    const settings = await getUserSettings(userId);
+    const ids = settings && Array.isArray(settings.deletedExampleDeckIds) ? new Set(settings.deletedExampleDeckIds) : new Set();
+    ids.add(deckId);
+    await saveUserSettings(userId, { ...settings, deletedExampleDeckIds: Array.from(ids) } as UserSettings);
+}
+
+// Remove a deleted example deck id for a user (Firestore user-settings)
+export async function removeDeletedExampleDeckIdCloud(userId: string, deckId: string): Promise<void> {
+    const settings = await getUserSettings(userId);
+    const ids = settings && Array.isArray(settings.deletedExampleDeckIds) ? new Set(settings.deletedExampleDeckIds) : new Set();
+    ids.delete(deckId);
+    await saveUserSettings(userId, { ...settings, deletedExampleDeckIds: Array.from(ids) } as UserSettings);
 }
 
 export async function saveUserSettings(userId: string, settings: UserSettings): Promise<void> {
