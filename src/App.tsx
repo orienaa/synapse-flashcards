@@ -52,6 +52,9 @@ import {
   AnkiImportModal,
 } from "./components";
 import { useStreak, useTheme, useStudyTimer, useSettings } from "./hooks";
+import { parseFlashcardsWithAI } from "./utils/ai";
+
+type DifficultyMode = "easy" | "default" | "hard";
 import { AnkiDeck } from "./utils/anki";
 
 // Get API key from environment variable (VITE_ prefix required for Vite to expose it)
@@ -113,6 +116,13 @@ export default function App() {
     forgot: 0,
     easy: 0,
   });
+  // Difficulty mode state
+  const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>(() => {
+    return (
+      (localStorage.getItem("flashcards-difficulty-mode") as DifficultyMode) ||
+      "default"
+    );
+  });
 
   // Quiz settings
   const { quizCardCount, shuffleMode, setQuizCardCount, setShuffleMode } =
@@ -170,18 +180,25 @@ export default function App() {
         if (unsubDecks) unsubDecks();
         unsubDecks = subscribeToDecks(user.uid, (cloudDecks) => {
           const preloadedDecks = createPreloadedDecks();
+          let updatedDecks = [...cloudDecks];
+          preloadedDecks.forEach((deck) => {
+            if (deletedExampleIds.has(deck.id)) return;
+            const idx = updatedDecks.findIndex((d) => d.id === deck.id);
+            if (idx === -1) {
+              saveDeckToCloud(user.uid, deck);
+              updatedDecks.push(deck);
+            } else if (
+              typeof updatedDecks[idx].version === "number" &&
+              typeof deck.version === "number" &&
+              updatedDecks[idx].version < deck.version
+            ) {
+              saveDeckToCloud(user.uid, deck);
+              updatedDecks[idx] = deck;
+            }
+          });
+
           // Only add example decks that are not deleted
-          const missing = preloadedDecks.filter(
-            (deck) =>
-              !cloudDecks.some((d) => d.id === deck.id) &&
-              !deletedExampleIds.has(deck.id),
-          );
-          if (cloudDecks.length === 0 || missing.length > 0) {
-            missing.forEach((deck) => saveDeckToCloud(user.uid, deck));
-            setDecks([...cloudDecks, ...missing]);
-          } else {
-            setDecks(cloudDecks);
-          }
+          setDecks(updatedDecks);
         });
       });
       unsubFolders = subscribeToFolders(user.uid, (cloudFolders) => {
@@ -198,12 +215,17 @@ export default function App() {
       const deletedExampleIds = getDeletedExampleDeckIds();
       const preloadedDecks = createPreloadedDecks();
       // Add any missing example decks that are not deleted
-      preloadedDecks.forEach((deck) => {
-        if (
-          !loadedDecks.some((d) => d.id === deck.id) &&
-          !deletedExampleIds.has(deck.id)
+      preloadedDecks.forEach((exampleDeck) => {
+        if (deletedExampleIds.has(exampleDeck.id)) return;
+        const idx = loadedDecks.findIndex((d) => d.id === exampleDeck.id);
+        if (idx === -1) {
+          loadedDecks = [exampleDeck, ...loadedDecks];
+        } else if (
+          typeof loadedDecks[idx].version === "number" &&
+          typeof exampleDeck.version === "number" &&
+          loadedDecks[idx].version < exampleDeck.version
         ) {
-          loadedDecks = [deck, ...loadedDecks];
+          loadedDecks[idx] = exampleDeck;
         }
       });
       setDecks(loadedDecks);
@@ -294,26 +316,83 @@ export default function App() {
     }
   };
 
-  const handleStartStudy = (deck: Deck, customCards?: Flashcard[]) => {
+  const handleStartStudy = async (
+    deck: Deck,
+    customCards?: Flashcard[],
+    mode?: DifficultyMode,
+  ) => {
     const cardsSource = customCards || deck.cards;
     if (cardsSource.length === 0) {
       alert("This deck has no cards yet!");
       return;
     }
     let cardsToStudy = customCards
-      ? customCards.slice(0, quizCardCount) // For custom selection, just take the cards
-      : getDueCards(deck.cards, quizCardCount); // For full deck, get due cards
+      ? customCards.slice(0, quizCardCount)
+      : getDueCards(deck.cards, quizCardCount);
+
+    // Determine which cards need MCQ generation
+    const needsMCQ = (card: Flashcard) => {
+      // Only for Easy mode (all MCQ) or Default mode (hard cards as MCQ)
+      if (mode === "hard") return false;
+      if (mode === "easy") return !card.options || card.options.length === 0;
+      // Default: MCQ for hard cards (repetitions <= 1 or easeFactor < 2.3)
+      const isHard =
+        (card.repetitions ?? 0) <= 1 || (card.easeFactor ?? 2.5) < 2.3;
+      return isHard && (!card.options || card.options.length === 0);
+    };
+
+    const cardsNeedingMCQ = cardsToStudy.filter(needsMCQ);
+
+    let updatedCards = [...cardsToStudy];
+    if (cardsNeedingMCQ.length > 0) {
+      // Prepare prompt for AI: batch all Q/A pairs
+      const aiInput = cardsNeedingMCQ
+        .map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer}`)
+        .join("\n\n");
+      try {
+        const aiResult = await parseFlashcardsWithAI(aiInput, API_KEY);
+        // Map AI-generated options back to cards
+        aiResult.cards.forEach((aiCard, idx) => {
+          const orig = cardsNeedingMCQ[idx];
+          if (
+            aiCard.options &&
+            aiCard.options.length === 4 &&
+            typeof aiCard.correctIndex === "number"
+          ) {
+            // Find and update in updatedCards
+            const updateIdx = updatedCards.findIndex((c) => c.id === orig.id);
+            if (updateIdx !== -1) {
+              updatedCards[updateIdx] = {
+                ...updatedCards[updateIdx],
+                options: aiCard.options,
+                correctIndex: aiCard.correctIndex,
+              };
+            }
+          }
+        });
+      } catch (err) {
+        alert(
+          "Failed to generate multiple choice options. Please try again.\n" +
+            (err instanceof Error ? err.message : ""),
+        );
+        return;
+      }
+    }
 
     // Shuffle if enabled
     if (shuffleMode) {
-      cardsToStudy = [...cardsToStudy].sort(() => Math.random() - 0.5);
+      updatedCards = [...updatedCards].sort(() => Math.random() - 0.5);
     }
 
     setSelectedDeck(deck);
-    setStudyCards(cardsToStudy);
+    setStudyCards(updatedCards);
     setCurrentCardIndex(0);
     setSessionStats({ correct: 0, forgot: 0, easy: 0 });
-    restartTimer(); // Start/restart timer
+    restartTimer();
+    if (mode) {
+      setDifficultyMode(mode);
+      localStorage.setItem("flashcards-difficulty-mode", mode);
+    }
     setView("study");
   };
 
@@ -593,12 +672,19 @@ export default function App() {
               folders={folders}
               onDeleteDeck={handleDeleteDeck}
               onViewDeck={handleViewDeck}
-              onStudyDeck={handleStartStudy}
+              onStudyDeck={(deck) =>
+                handleStartStudy(deck, undefined, difficultyMode)
+              }
               onMoveDeckToFolder={handleMoveDeckToFolder}
               onCreateFolder={handleCreateFolder}
               onUpdateFolder={handleUpdateFolder}
               onDeleteFolder={handleDeleteFolder}
               onReorderDecks={handleReorderDecks}
+              difficultyMode={difficultyMode}
+              setDifficultyMode={(mode: DifficultyMode) => {
+                setDifficultyMode(mode);
+                localStorage.setItem("flashcards-difficulty-mode", mode);
+              }}
             />
           )}
 
@@ -620,6 +706,7 @@ export default function App() {
               currentIndex={currentCardIndex}
               sessionStats={sessionStats}
               onResponse={handleResponse}
+              difficultyMode={difficultyMode}
             />
           )}
 

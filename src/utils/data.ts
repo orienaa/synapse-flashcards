@@ -466,7 +466,7 @@ export const ExampleDeck = {
 }
 
 export const ExampleDeck2 = {
-    version: 2, // Increment this when you update the deck content
+    version: 4, // Increment this when you update the deck content
     "title": "Grile examen Fundamentele psihologiei I",
     "cards": [
         {

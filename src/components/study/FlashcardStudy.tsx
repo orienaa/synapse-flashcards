@@ -13,6 +13,7 @@ interface FlashcardStudyProps {
   currentIndex: number;
   sessionStats: SessionStats;
   onResponse: (response: StudyResponse) => void;
+  difficultyMode: "easy" | "default" | "hard";
 }
 
 // Fisher-Yates shuffle with seed based on card id for consistent shuffling per card
@@ -54,6 +55,7 @@ export function FlashcardStudy({
   currentIndex,
   sessionStats,
   onResponse,
+  difficultyMode,
 }: FlashcardStudyProps) {
   const [showAnswer, setShowAnswer] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -61,22 +63,28 @@ export function FlashcardStudy({
   const progress =
     cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0;
 
-  // Shuffle options for multiple choice cards
+  // Determine if this card should be MCQ or open based on difficultyMode
+  const isCardHard = useMemo(() => {
+    // Heuristic: hard if repetitions <= 1 or easeFactor < 2.3
+    if (!currentCard) return false;
+    return (
+      (currentCard.repetitions ?? 0) <= 1 ||
+      (currentCard.easeFactor ?? 2.5) < 2.3
+    );
+  }, [currentCard]);
+
+  // MCQ logic
   const shuffledOptions = useMemo(() => {
     if (!currentCard?.options || currentCard.options.length === 0) {
       return null;
     }
-
     const { shuffled, originalIndices } = shuffleWithSeed(
       currentCard.options,
-      currentCard.id + currentIndex.toString(), // Use card id + index for consistent but unique shuffle
+      currentCard.id + currentIndex.toString(),
     );
-
-    // Find where the correct answer ended up after shuffling
     const newCorrectIndex = originalIndices.findIndex(
       (origIdx) => origIdx === currentCard.correctIndex,
     );
-
     return {
       options: shuffled,
       correctIndex: newCorrectIndex,
@@ -89,7 +97,15 @@ export function FlashcardStudy({
     currentIndex,
   ]);
 
-  const isMultipleChoice = shuffledOptions !== null;
+  let isMultipleChoice = false;
+  if (difficultyMode === "easy") {
+    isMultipleChoice = !!shuffledOptions;
+  } else if (difficultyMode === "hard") {
+    isMultipleChoice = false;
+  } else {
+    // default: MCQ for hard cards, open for easy
+    isMultipleChoice = isCardHard && !!shuffledOptions;
+  }
   const hasAnswered = selectedOption !== null;
   const isCorrect =
     hasAnswered && selectedOption === shuffledOptions?.correctIndex;
@@ -197,7 +213,7 @@ export function FlashcardStudy({
       <div className="w-full max-w-md mb-4 md:mb-6">
         <div className="h-2 bg-purple-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-pink-400 to-purple-400 transition-all duration-300"
+            className="h-full bg-linear-to-r from-pink-400 to-purple-400 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -208,7 +224,7 @@ export function FlashcardStudy({
         // Multiple Choice Card
         <div className="w-full max-w-md">
           {/* Question */}
-          <div className="bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/50 dark:to-purple-900/50 rounded-2xl border-4 border-pink-200 dark:border-purple-700 p-4 md:p-6 mb-4">
+          <div className="bg-linear-to-br from-pink-100 to-purple-100 dark:from-pink-900/50 dark:to-purple-900/50 rounded-2xl border-4 border-pink-200 dark:border-purple-700 p-4 md:p-6 mb-4">
             <Sparkles className="text-purple-400 dark:text-purple-300 w-5 h-5 md:w-6 md:h-6 mb-2" />
             <p className="text-purple-700 dark:text-purple-200 text-base md:text-lg font-medium">
               {currentCard.question}
@@ -217,46 +233,49 @@ export function FlashcardStudy({
 
           {/* Options */}
           <div className="space-y-2">
-            {shuffledOptions.options.map((option, index) => {
-              const isSelected = selectedOption === index;
-              const isCorrectOption = index === shuffledOptions.correctIndex;
+            {shuffledOptions &&
+              shuffledOptions.options.map((option, index) => {
+                const isSelected = selectedOption === index;
+                const isCorrectOption = index === shuffledOptions.correctIndex;
 
-              let buttonStyle =
-                "bg-white dark:bg-gray-800 border-2 border-purple-200 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-200";
+                let buttonStyle =
+                  "bg-white dark:bg-gray-800 border-2 border-purple-200 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-200";
 
-              if (hasAnswered) {
-                if (isCorrectOption) {
-                  buttonStyle =
-                    "bg-green-100 dark:bg-green-900/50 border-2 border-green-400 dark:border-green-500 text-green-700 dark:text-green-300";
-                } else if (isSelected && !isCorrectOption) {
-                  buttonStyle =
-                    "bg-red-100 dark:bg-red-900/50 border-2 border-red-400 dark:border-red-500 text-red-700 dark:text-red-300";
-                } else {
-                  buttonStyle =
-                    "bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500";
+                if (hasAnswered) {
+                  if (isCorrectOption) {
+                    buttonStyle =
+                      "bg-green-100 dark:bg-green-900/50 border-2 border-green-400 dark:border-green-500 text-green-700 dark:text-green-300";
+                  } else if (isSelected && !isCorrectOption) {
+                    buttonStyle =
+                      "bg-red-100 dark:bg-red-900/50 border-2 border-red-400 dark:border-red-500 text-red-700 dark:text-red-300";
+                  } else {
+                    buttonStyle =
+                      "bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500";
+                  }
                 }
-              }
 
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleOptionSelect(index)}
-                  disabled={hasAnswered}
-                  className={`w-full p-3 md:p-4 rounded-xl text-left transition-all ${buttonStyle} flex items-center gap-3`}
-                >
-                  <span className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-purple-200 dark:bg-purple-700 text-purple-600 dark:text-purple-200 flex items-center justify-center text-sm font-medium flex-shrink-0">
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  <span className="flex-1 text-sm md:text-base">{option}</span>
-                  {hasAnswered && isCorrectOption && (
-                    <CheckCircle2 className="w-5 h-5 text-green-500 dark:text-green-400 flex-shrink-0" />
-                  )}
-                  {hasAnswered && isSelected && !isCorrectOption && (
-                    <XCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
-                  )}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleOptionSelect(index)}
+                    disabled={hasAnswered}
+                    className={`w-full p-3 md:p-4 rounded-xl text-left transition-all ${buttonStyle} flex items-center gap-3`}
+                  >
+                    <span className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-purple-200 dark:bg-purple-700 text-purple-600 dark:text-purple-200 flex items-center justify-center text-sm font-medium shrink-0">
+                      {String.fromCharCode(65 + index)}
+                    </span>
+                    <span className="flex-1 text-sm md:text-base">
+                      {option}
+                    </span>
+                    {hasAnswered && isCorrectOption && (
+                      <CheckCircle2 className="w-5 h-5 text-green-500 dark:text-green-400 shrink-0" />
+                    )}
+                    {hasAnswered && isSelected && !isCorrectOption && (
+                      <XCircle className="w-5 h-5 text-red-500 dark:text-red-400 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
           </div>
 
           {/* Result feedback */}
@@ -274,7 +293,7 @@ export function FlashcardStudy({
         // Regular Flashcard (reveal style - question stays visible, answer appears below)
         <div className="w-full max-w-md">
           {/* Question - always visible */}
-          <div className="bg-gradient-to-br from-pink-100 to-purple-100 rounded-2xl border-4 border-pink-200 p-4 md:p-6">
+          <div className="bg-linear-to-br from-pink-100 to-purple-100 rounded-2xl border-4 border-pink-200 p-4 md:p-6">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="text-purple-400 w-4 h-4" />
               <span className="text-purple-400 text-xs font-medium uppercase tracking-wide">
@@ -288,7 +307,7 @@ export function FlashcardStudy({
 
           {/* Answer - revealed when showAnswer is true */}
           {showAnswer && (
-            <div className="mt-3 bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl border-4 border-purple-200 p-4 md:p-6 animate-fade-in">
+            <div className="mt-3 bg-linear-to-br from-purple-100 to-blue-100 rounded-2xl border-4 border-purple-200 p-4 md:p-6 animate-fade-in">
               <div className="flex items-center gap-2 mb-2">
                 <Heart className="text-pink-400 fill-pink-400 w-4 h-4" />
                 <span className="text-pink-400 text-xs font-medium uppercase tracking-wide">
@@ -308,7 +327,7 @@ export function FlashcardStudy({
         {!showAnswer && !isMultipleChoice ? (
           <button
             onClick={() => setShowAnswer(true)}
-            className="px-6 md:px-8 py-3 rounded-xl bg-gradient-to-r from-pink-400 to-purple-400 text-white text-sm md:text-base font-medium hover:from-pink-500 hover:to-purple-500 transition-all shadow-lg flex items-center gap-2"
+            className="px-6 md:px-8 py-3 rounded-xl bg-linear-to-r from-pink-400 to-purple-400 text-white text-sm md:text-base font-medium hover:from-pink-500 hover:to-purple-500 transition-all shadow-lg flex items-center gap-2"
           >
             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
             Show Answer
@@ -321,8 +340,8 @@ export function FlashcardStudy({
                 onClick={() => handleResponse(isCorrect ? "correct" : "forgot")}
                 className={`px-6 md:px-8 py-3 rounded-xl text-white text-sm md:text-base font-medium transition-all shadow-lg ${
                   isCorrect
-                    ? "bg-gradient-to-r from-green-400 to-teal-400 hover:from-green-500 hover:to-teal-500"
-                    : "bg-gradient-to-r from-purple-400 to-blue-400 hover:from-purple-500 hover:to-blue-500"
+                    ? "bg-linear-to-r from-green-400 to-teal-400 hover:from-green-500 hover:to-teal-500"
+                    : "bg-linear-to-r from-purple-400 to-blue-400 hover:from-purple-500 hover:to-blue-500"
                 }`}
               >
                 {isCorrect ? "🌟 Continue" : "📚 Continue"}
@@ -332,19 +351,19 @@ export function FlashcardStudy({
               <>
                 <button
                   onClick={() => handleResponse("forgot")}
-                  className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-gradient-to-r from-red-400 to-pink-400 text-white text-sm md:text-base font-medium hover:from-red-500 hover:to-pink-500 transition-all shadow-lg"
+                  className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-linear-to-r from-red-400 to-pink-400 text-white text-sm md:text-base font-medium hover:from-red-500 hover:to-pink-500 transition-all shadow-lg"
                 >
                   😅 Forgot
                 </button>
                 <button
                   onClick={() => handleResponse("correct")}
-                  className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-gradient-to-r from-purple-400 to-blue-400 text-white text-sm md:text-base font-medium hover:from-purple-500 hover:to-blue-500 transition-all shadow-lg"
+                  className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-linear-to-r from-purple-400 to-blue-400 text-white text-sm md:text-base font-medium hover:from-purple-500 hover:to-blue-500 transition-all shadow-lg"
                 >
                   ✓ Correct
                 </button>
                 <button
                   onClick={() => handleResponse("easy")}
-                  className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-gradient-to-r from-green-400 to-teal-400 text-white text-sm md:text-base font-medium hover:from-green-500 hover:to-teal-500 transition-all shadow-lg"
+                  className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-linear-to-r from-green-400 to-teal-400 text-white text-sm md:text-base font-medium hover:from-green-500 hover:to-teal-500 transition-all shadow-lg"
                 >
                   🌟 Easy
                 </button>

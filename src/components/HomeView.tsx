@@ -57,6 +57,8 @@ interface HomeViewProps {
   onUpdateFolder: (folderId: string, name: string, color: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onReorderDecks: (reorderedIds: string[], folderId: string | null) => void;
+  difficultyMode: "easy" | "default" | "hard";
+  setDifficultyMode: (mode: "easy" | "default" | "hard") => void;
 }
 
 export function HomeView({
@@ -70,6 +72,8 @@ export function HomeView({
   onUpdateFolder,
   onDeleteFolder,
   onReorderDecks,
+  difficultyMode,
+  setDifficultyMode,
 }: HomeViewProps) {
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
@@ -237,6 +241,29 @@ export function HomeView({
 
   return (
     <div className="space-y-3">
+      {/* Difficulty selector */}
+      <div className="flex justify-center mb-2">
+        <div className="inline-flex gap-2 bg-purple-50 dark:bg-purple-900/30 rounded-xl p-1 border border-purple-200 dark:border-purple-700">
+          {[
+            { label: "Easy (All MCQ)", value: "easy" },
+            { label: "Default (Mix)", value: "default" },
+            { label: "Hard (All Open)", value: "hard" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                difficultyMode === opt.value
+                  ? "bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-white shadow"
+                  : "text-purple-700 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800"
+              }`}
+              onClick={() => setDifficultyMode(opt.value as any)}
+              type="button"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {/* New Folder button */}
       <div className="flex justify-end">
         <button
