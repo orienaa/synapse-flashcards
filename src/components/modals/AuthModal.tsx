@@ -8,7 +8,7 @@ import {
 
 interface AuthModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (user?: { uid: string } | null) => void;
 }
 
 export function AuthModal({ onClose, onSuccess }: AuthModalProps) {
@@ -40,7 +40,7 @@ export function AuthModal({ onClose, onSuccess }: AuthModalProps) {
       } else {
         await signUpWithEmail(email, password);
       }
-      onSuccess();
+      onSuccess(null);
     } catch (err: any) {
       console.error("Auth error:", err);
       if (err.code === "auth/user-not-found") {
@@ -63,10 +63,10 @@ export function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     setError("");
     setIsLoading(true);
     try {
-      const method = await signInWithGoogle();
+      const result = await signInWithGoogle();
 
-      if (method === "popup") {
-        onSuccess();
+      if (result.method === "popup") {
+        onSuccess(result.user);
       }
     } catch (err: any) {
       console.error("Google sign-in error:", err);

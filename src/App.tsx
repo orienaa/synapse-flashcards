@@ -765,7 +765,13 @@ export default function App() {
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
-          onSuccess={() => setShowAuthModal(false)}
+          onSuccess={(authUser) => {
+            if (authUser) {
+              setUser(authUser as User);
+              setAuthLoading(false);
+            }
+            setShowAuthModal(false);
+          }}
         />
       )}
     </div>

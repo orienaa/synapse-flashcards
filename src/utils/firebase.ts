@@ -55,14 +55,14 @@ export async function signUpWithEmail(email: string, password: string) {
 
 export async function signInWithGoogle() {
     try {
-        await signInWithPopup(auth, googleProvider);
-        return "popup" as const;
+        const result = await signInWithPopup(auth, googleProvider);
+        return { method: "popup" as const, user: result.user };
     } catch (error) {
         const authError = error as AuthError;
 
         if (authError.code === "auth/popup-blocked") {
             await signInWithRedirect(auth, googleProvider);
-            return "redirect" as const;
+            return { method: "redirect" as const };
         }
 
         throw error;
