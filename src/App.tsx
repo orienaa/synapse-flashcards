@@ -157,15 +157,28 @@ export default function App() {
 
   // Listen for auth state changes
   useEffect(() => {
-    completeGoogleRedirectSignIn().catch((error) => {
-      console.error("Google redirect sign-in failed:", error);
-    });
+    let isMounted = true;
 
     const unsubscribe = onAuthChange((authUser) => {
+      if (!isMounted) return;
       setUser(authUser);
       setAuthLoading(false);
     });
-    return unsubscribe;
+
+    completeGoogleRedirectSignIn()
+      .then((result) => {
+        if (!isMounted || !result?.user) return;
+        setUser(result.user);
+        setAuthLoading(false);
+      })
+      .catch((error) => {
+        console.error("Google redirect sign-in failed:", error);
+      });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Load decks - from cloud if logged in, otherwise localStorage
