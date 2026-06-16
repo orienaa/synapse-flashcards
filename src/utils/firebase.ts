@@ -1,6 +1,10 @@
 import { initializeApp } from "firebase/app";
 import {
     getAuth,
+    browserLocalPersistence,
+    browserSessionPersistence,
+    inMemoryPersistence,
+    setPersistence,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signInWithPopup,
@@ -8,7 +12,7 @@ import {
     getRedirectResult,
     GoogleAuthProvider,
     signOut as firebaseSignOut,
-    onAuthStateChanged,
+    onIdTokenChanged,
     type AuthError,
     type User,
 } from "firebase/auth";
@@ -41,6 +45,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Best-effort persistence setup for browsers that block specific storage APIs.
+void setPersistence(auth, browserLocalPersistence)
+    .catch(() => setPersistence(auth, browserSessionPersistence))
+    .catch(() => setPersistence(auth, inMemoryPersistence))
+    .catch(() => undefined);
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -78,7 +88,7 @@ export async function signOut() {
 }
 
 export function onAuthChange(callback: (user: User | null) => void) {
-    return onAuthStateChanged(auth, callback);
+    return onIdTokenChanged(auth, callback);
 }
 
 // Firestore functions for decks

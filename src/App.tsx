@@ -98,6 +98,13 @@ function createPreloadedDecks(): Deck[] {
 }
 
 export default function App() {
+  const authDebugEnabled = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("authDebug");
+  }, []);
+
+  const [authDebugEvents, setAuthDebugEvents] = useState<string[]>([]);
+
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -159,19 +166,34 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
+    const pushAuthDebug = (message: string) => {
+      if (!authDebugEnabled || !isMounted) return;
+      const stamp = new Date().toISOString().slice(11, 19);
+      setAuthDebugEvents((prev) =>
+        [`${stamp} ${message}`, ...prev].slice(0, 12),
+      );
+    };
+
+    pushAuthDebug("auth init");
+
     const unsubscribe = onAuthChange((authUser) => {
       if (!isMounted) return;
+      pushAuthDebug(`observer user=${authUser ? authUser.uid : "null"}`);
       setUser(authUser);
       setAuthLoading(false);
     });
 
     completeGoogleRedirectSignIn()
       .then((result) => {
+        pushAuthDebug(
+          `redirect user=${result?.user ? result.user.uid : "null"}`,
+        );
         if (!isMounted || !result?.user) return;
         setUser(result.user);
         setAuthLoading(false);
       })
       .catch((error) => {
+        pushAuthDebug(`redirect error=${error?.code || "unknown"}`);
         console.error("Google redirect sign-in failed:", error);
       });
 
@@ -180,6 +202,17 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!authDebugEnabled) return;
+    const stamp = new Date().toISOString().slice(11, 19);
+    setAuthDebugEvents((prev) =>
+      [
+        `${stamp} render user=${user ? user.uid : "null"} loading=${authLoading}`,
+        ...prev,
+      ].slice(0, 12),
+    );
+  }, [user, authLoading, authDebugEnabled]);
 
   // Load decks - from cloud if logged in, otherwise localStorage
   useEffect(() => {
@@ -767,12 +800,34 @@ export default function App() {
           onClose={() => setShowAuthModal(false)}
           onSuccess={(authUser) => {
             if (authUser) {
+              if (authDebugEnabled) {
+                const stamp = new Date().toISOString().slice(11, 19);
+                setAuthDebugEvents((prev) =>
+                  [
+                    `${stamp} modal success user=${authUser.uid}`,
+                    ...prev,
+                  ].slice(0, 12),
+                );
+              }
               setUser(authUser as User);
               setAuthLoading(false);
             }
             setShowAuthModal(false);
           }}
         />
+      )}
+
+      {authDebugEnabled && (
+        <div className="fixed left-2 bottom-2 z-9999 max-w-md w-[calc(100vw-1rem)] sm:w-md rounded-lg border border-black/20 bg-white/95 p-2 shadow-xl text-[11px] text-black/80">
+          <p className="font-semibold mb-1">Auth Debug</p>
+          <div className="max-h-40 overflow-auto space-y-1">
+            {authDebugEvents.map((event, index) => (
+              <p key={`${event}-${index}`} className="leading-tight">
+                {event}
+              </p>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
