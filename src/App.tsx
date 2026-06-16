@@ -16,7 +16,7 @@ import {
   getDueCards,
   createFlashcard,
 } from "./utils/spacedRepetition";
-import { ExampleDeck, ExampleDeck2 } from "./utils/data";
+import { ExampleDeck, ExampleDeck2, ExampleDeck3 } from "./utils/data";
 import {
   onAuthChange,
   completeGoogleRedirectSignIn,
@@ -85,6 +85,19 @@ function createPreloadedDecks(): Deck[] {
       id: "example-deck-2",
       name: ExampleDeck2.title,
       cards: ExampleDeck2.cards.map((card) =>
+        createFlashcard(
+          card.question,
+          card.answer,
+          "options" in card ? (card as any).options : undefined,
+          "correctIndex" in card ? (card as any).correctIndex : undefined,
+        ),
+      ),
+      createdAt: new Date(),
+    },
+    {
+      id: "example-deck-3",
+      name: ExampleDeck3.title,
+      cards: ExampleDeck3.cards.map((card) =>
         createFlashcard(
           card.question,
           card.answer,

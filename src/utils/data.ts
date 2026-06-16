@@ -1209,3 +1209,85 @@ export const ExampleDeck2 = {
         }
     ]
 }
+
+export const ExampleDeck3 = {
+    "title": "Gândirea și Reprezentarea Mentală - Testele Sistemului Vienna (VTS)",
+    "cards": [
+        {
+            "question": "Cum este definită inteligența conform Jean Piaget?",
+            "answer": "Modalitate superioară de adaptare la mediu pe baza proceselor de asimilare și acomodare"
+        },
+        {
+            "question": "Care sunt cele 3 dimensiuni ale Testului AHA?",
+            "answer": "Compararea suprafețelor, Codarea simbolurilor și Diferențierea figurii în plus"
+        },
+        {
+            "question": "Ce măsoară Compararea suprafețelor din Testul AHA?",
+            "answer": "Exactitatea, decizia și impulsivitatea versus reflexivitatea"
+        },
+        {
+            "question": "Ce măsoară Codarea simbolurilor din Testul AHA?",
+            "answer": "Nivelul de performanță, nivelul de aspirație și toleranța la frustrare"
+        },
+        {
+            "question": "Ce măsoară Diferențierea figurii în plus din Testul AHA?",
+            "answer": "Motivația pentru performanță"
+        },
+        {
+            "question": "Ce evaluează Testul de Rotire Mentală?",
+            "answer": "Subfațetă a inteligenței generale spațiale prin identificarea fețelor unor cărămizi aranjate diferit"
+        },
+        {
+            "question": "Care este scopul Testului de Vizualizare 2D?",
+            "answer": "Evaluează aptitudinea de vizualizare spațială bidimensională prin completarea unei figuri geometrice cu o bucată lipsă"
+        },
+        {
+            "question": "Ce particularitate are Testul A3DW (Adaptativ 3D)?",
+            "answer": "Fiind adaptativ, dificultatea itemilor se calibrează automat în funcție de performanța anterioară a subiectului"
+        },
+        {
+            "question": "Ce evalueaza Testul AMT (Matrici Adaptative Schuhfried)?",
+            "answer": "Găsirea regulilor logice de completare a unei căsuțe libere și analiza și compararea stimulilor figurali"
+        },
+        {
+            "question": "Care este parametrul principal al Testului AMT?",
+            "answer": "Estimarea inteligenței generale exprimată în percentile"
+        },
+        {
+            "question": "Ce măsoară Testul Cognitrone (COG)?",
+            "answer": "Operațiile de analiză și comparație prin identificarea rapidă a unui item abstract figural pe o bandă de referință"
+        },
+        {
+            "question": "Ce măsoară Testul ALS (Serii de exerciții matematice)?",
+            "answer": "Concentrarea, saturația mentală, oboseala psihică și rezistența la stres prin adunări și scăderi simple sub presiune de timp"
+        },
+        {
+            "question": "Care este scopul Testului OLMT (Învățarea comportamentului motivant)?",
+            "answer": "Diferențiază subiecții care lucrează mai bine individual de cei stimulați de competiție"
+        },
+        {
+            "question": "Câte căsuțe conține traseul din Testul OLMT?",
+            "answer": "100 de căsuțe tip \"șarpe\""
+        },
+        {
+            "question": "Ce variabile sunt măsurate în Testul OLMT?",
+            "answer": "Motivația din performanța individuală, motivația din competiție și nivelul de aspirație"
+        },
+        {
+            "question": "Cum se numesc cele trei subteste ale Testului DAKT (Atenție distributivă)?",
+            "answer": "Numere, litere și figuri"
+        },
+        {
+            "question": "Ce măsoară Testul Vigil (Versiunea Quatember-Maly)?",
+            "answer": "Vigilența și atenția susținută pe termen lung"
+        },
+        {
+            "question": "La ce trebuie să reacționeze subiectul în Testul Vigil?",
+            "answer": "Exclusiv la salturile duble ale punctului pseudo-întâmplător"
+        },
+        {
+            "question": "Care sunt variabilele dependente măsurate în Testul Vigil?",
+            "answer": "Exactitatea observației (reacții corecte la stimuli critici), reacții false, reacții omise și valoarea medie a TR"
+        }
+    ]
+}
