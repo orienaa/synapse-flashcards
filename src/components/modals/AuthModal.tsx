@@ -63,11 +63,21 @@ export function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     setError("");
     setIsLoading(true);
     try {
-      await signInWithGoogle();
-      onSuccess();
+      const method = await signInWithGoogle();
+
+      if (method === "popup") {
+        onSuccess();
+      }
     } catch (err: any) {
       console.error("Google sign-in error:", err);
-      setError(err.message || "Google sign-in failed");
+
+      if (err.code === "auth/popup-closed-by-user") {
+        setError("Sign-in popup was closed before completing login.");
+      } else if (err.code === "auth/unauthorized-domain") {
+        setError("This domain is not authorized in Firebase Auth settings.");
+      } else {
+        setError(err.message || "Google sign-in failed");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -4,9 +4,11 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
     GoogleAuthProvider,
     signOut as firebaseSignOut,
     onAuthStateChanged,
+    type AuthError,
     type User,
 } from "firebase/auth";
 import {
@@ -51,7 +53,19 @@ export async function signUpWithEmail(email: string, password: string) {
 }
 
 export async function signInWithGoogle() {
-    return signInWithPopup(auth, googleProvider).then((_result: unknown) => { }).catch((error: unknown) => console.error(error));
+    try {
+        await signInWithPopup(auth, googleProvider);
+        return "popup" as const;
+    } catch (error) {
+        const authError = error as AuthError;
+
+        if (authError.code === "auth/popup-blocked") {
+            await signInWithRedirect(auth, googleProvider);
+            return "redirect" as const;
+        }
+
+        throw error;
+    }
 }
 
 export async function signOut() {
