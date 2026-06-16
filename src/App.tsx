@@ -19,6 +19,7 @@ import {
 import { ExampleDeck, ExampleDeck2 } from "./utils/data";
 import {
   onAuthChange,
+  completeGoogleRedirectSignIn,
   signOut,
   saveDeckToCloud,
   deleteCloudDeck,
@@ -156,6 +157,10 @@ export default function App() {
 
   // Listen for auth state changes
   useEffect(() => {
+    completeGoogleRedirectSignIn().catch((error) => {
+      console.error("Google redirect sign-in failed:", error);
+    });
+
     const unsubscribe = onAuthChange((authUser) => {
       setUser(authUser);
       setAuthLoading(false);

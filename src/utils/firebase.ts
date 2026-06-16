@@ -5,6 +5,7 @@ import {
     createUserWithEmailAndPassword,
     signInWithPopup,
     signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider,
     signOut as firebaseSignOut,
     onAuthStateChanged,
@@ -66,6 +67,10 @@ export async function signInWithGoogle() {
 
         throw error;
     }
+}
+
+export async function completeGoogleRedirectSignIn() {
+    return getRedirectResult(auth);
 }
 
 export async function signOut() {
