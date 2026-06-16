@@ -51,7 +51,7 @@ export async function signUpWithEmail(email: string, password: string) {
 }
 
 export async function signInWithGoogle() {
-    return signInWithPopup(auth, googleProvider);
+    return signInWithPopup(auth, googleProvider).then((_result: unknown) => { }).catch((error: unknown) => console.error(error));
 }
 
 export async function signOut() {
